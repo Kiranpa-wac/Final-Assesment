@@ -17,19 +17,32 @@ import useSearch from "../Hooks/useSearch";
 
 const PAGE_SIZE = 28;
 
-const fetcher = async ([url, query, filtersParam, sortBy, page, size]) => {
+// Define client header mapping for each client type
+const CLIENT_HEADERS = {
+  en: {
+    "Client-id": "7645129791",
+    "Secret-key": "Qfj1UUkFItWfVFwWpJ65g0VfhjdVGN",
+  },
+  ar: {
+    "Client-id": "5807942863", 
+    "Secret-key": "Llz5MR37gZ4gJULMwf762w1lQ13Iro", 
+  },
+};
+
+const fetcher = async ([url, query, filtersParam, sortBy, clientType, page, size]) => {
   try {
     const filter = filtersParam ? JSON.parse(filtersParam) : {};
+    const headers = {
+      ...CLIENT_HEADERS[clientType],
+      "Content-Type": "application/json",
+    };
+
     const response = await fetch(url, {
       method: "POST",
-      headers: {
-        "Client-id": "7645129791",
-        "Secret-key": "Qfj1UUkFItWfVFwWpJ65g0VfhjdVGN",
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify({
         search: query,
-        filter,
+        filter, // Pass the selected filters to the API
         page: page,
         size: size,
         sort_by: sortBy,
@@ -54,9 +67,13 @@ const SearchPage = () => {
 
   const { search, setSearch, handleSubmit } = useSearch();
 
+  // New state for client selection – default is "en" (Quater en)
+  const [clientType, setClientType] = useState("en");
+
   // Sort state – default value is "1" (Relevance)
   const [sortBy, setSortBy] = useState("1");
 
+  // SWRInfinite key includes query, filters, sort, and client type
   const getKey = (pageIndex, previousPageData) => {
     if (!urlQuery) return null;
     if (previousPageData && previousPageData.items.length === 0) return null;
@@ -65,21 +82,17 @@ const SearchPage = () => {
       urlQuery,
       filtersParam,
       sortBy,
+      clientType,
       pageIndex + 1,
       PAGE_SIZE,
     ];
   };
 
-  const {
-    data,
-    error,
-    size: swrSize,
-    setSize,
-    isValidating,
-  } = useSWRInfinite(getKey, fetcher, {
-    initialSize: initialPage + 1,
-    revalidateOnFocus: false,
-  });
+  const { data, error, size: swrSize, setSize, isValidating } = useSWRInfinite(
+    getKey,
+    fetcher,
+    { initialSize: initialPage + 1, revalidateOnFocus: false }
+  );
 
   const [currentPage, setCurrentPage] = useState(initialPage);
   const totalItems = data && data[0] ? data[0].total : 0;
@@ -87,7 +100,6 @@ const SearchPage = () => {
   const currentData = data ? data[currentPage] : null;
   const items = currentData?.items || [];
   const filters = data && data[0] ? data[0].filter_list : [];
-
   const selectedFiltersFromUrl = filtersParam ? JSON.parse(filtersParam) : {};
 
   const handlePageChange = (pageNumber) => {
@@ -112,9 +124,18 @@ const SearchPage = () => {
   const handleSortChange = (e) => {
     const newValue = e.target.value;
     setSortBy(newValue);
-
-    // Reset page to 1 on sort change
     const newParams = new URLSearchParams(searchParams);
+    newParams.set("page", 1);
+    setSearchParams(newParams);
+    setCurrentPage(0);
+  };
+
+  const handleClientChange = (e) => {
+    const newValue = e.target.value;
+    setClientType(newValue);
+    // Optionally update URL parameter "client" if you want persistence
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set("client", newValue);
     newParams.set("page", 1);
     setSearchParams(newParams);
     setCurrentPage(0);
@@ -136,25 +157,30 @@ const SearchPage = () => {
       {/* Heading */}
       <Row>
         <Col xs={12}>
-          <h2 className="mb-4 text-center">
-            Search Results for: {urlQuery}
-          </h2>
+          <h2 className="mb-4 text-center">Search Results for: {urlQuery}</h2>
         </Col>
       </Row>
 
-      {/* Sort Dropdown (small width, aligned right) */}
+      {/* Client Dropdown and Sort Dropdown */}
       <Row className="mb-3">
         <Col className="d-flex justify-content-end">
           <Form.Select
+            value={clientType}
+            onChange={handleClientChange}
+            style={{ width: "150px", marginRight: "10px" }}
+          >
+            <option value="en">Quater en</option>
+            <option value="ar">Quater ar</option>
+          </Form.Select>
+          <Form.Select
             value={sortBy}
             onChange={handleSortChange}
-            style={{ width: "150px" }} // Adjust width as needed
+            style={{ width: "150px" }}
           >
             <option value="1">Relevance</option>
             <option value="2">Price high to low</option>
             <option value="3">Price low to high</option>
             <option value="4">Newest</option>
-
           </Form.Select>
         </Col>
       </Row>
