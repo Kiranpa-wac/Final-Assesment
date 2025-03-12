@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Container,
   Row,
@@ -16,8 +16,10 @@ import useSearch from "../Hooks/useSearch";
 
 const PAGE_SIZE = 28;
 
-const fetcher = async ([url, query, page, size]) => {
+const fetcher = async ([url, query, filtersParam, page, size]) => {
   try {
+    // Parse selected filters from the URL (if any)
+    const filter = filtersParam ? JSON.parse(filtersParam) : {};
     const response = await fetch(url, {
       method: "POST",
       headers: {
@@ -27,6 +29,7 @@ const fetcher = async ([url, query, page, size]) => {
       },
       body: JSON.stringify({
         search: query,
+        filter, // Pass the selected filters to the API
         page: page,
         size: size,
         sort_by: "1",
@@ -46,44 +49,42 @@ const fetcher = async ([url, query, page, size]) => {
 const SearchPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlQuery = searchParams.get("query") || "";
+  // Get the filters from the URL as a JSON string (if any)
+  const filtersParam = searchParams.get("filters") || "";
   // Derive initial page from URL (convert to 0-indexed)
   const initialPage = parseInt(searchParams.get("page") || "1", 10) - 1;
 
   const { search, setSearch, handleSubmit } = useSearch();
 
-  // SWRInfinite key function
+  // SWRInfinite key includes query and filters
   const getKey = (pageIndex, previousPageData) => {
     if (!urlQuery) return null;
     if (previousPageData && previousPageData.items.length === 0) return null;
-    return ["https://uat.search-assist.webc.in/api/search", urlQuery, pageIndex + 1, PAGE_SIZE];
+    return [
+      "https://uat.search-assist.webc.in/api/search",
+      urlQuery,
+      filtersParam,
+      pageIndex + 1,
+      PAGE_SIZE,
+    ];
   };
 
+  // Use initialSize to load enough pages on refresh
   const { data, error, size: swrSize, setSize, isValidating } = useSWRInfinite(
     getKey,
     fetcher,
-    { revalidateOnFocus: false }
+    { initialSize: initialPage + 1, revalidateOnFocus: false }
   );
 
-  // Local page state
   const [currentPage, setCurrentPage] = useState(initialPage);
-
-  // Ensure enough pages are loaded based on the initial page from the URL.
-  useEffect(() => {
-    if (swrSize < initialPage + 1) {
-      setSize(initialPage + 1);
-    }
-  }, [initialPage, swrSize, setSize]);
-
-  // Calculate total items/pages from first page’s data
   const totalItems = data && data[0] ? data[0].total : 0;
   const totalPages = Math.ceil(totalItems / PAGE_SIZE);
-
-  // Current page data
   const currentData = data ? data[currentPage] : null;
   const items = currentData?.items || [];
-
-  // Extract filters from first page
   const filters = data && data[0] ? data[0].filter_list : [];
+
+  // Parse selected filters from URL or default to empty object.
+  const selectedFiltersFromUrl = filtersParam ? JSON.parse(filtersParam) : {};
 
   const handlePageChange = (pageNumber) => {
     if (pageNumber < 0 || pageNumber >= totalPages) return;
@@ -91,30 +92,42 @@ const SearchPage = () => {
       setSize(swrSize + 1);
     }
     setCurrentPage(pageNumber);
-    // Update URL (1-indexed)
+    // Update the URL's "page" parameter (1-indexed)
     const newParams = new URLSearchParams(searchParams);
     newParams.set("page", pageNumber + 1);
     setSearchParams(newParams);
   };
 
-  const handleFilterChange = (selectedFilters) => {
-    console.log("Selected filters:", selectedFilters);
-    // Extend this to trigger filtered searches
+  // When filters change, update the URL state immediately and reset the page to 1.
+  const handleFilterChange = (updatedFilters) => {
+    console.log("Selected filters:", updatedFilters);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set("filters", JSON.stringify(updatedFilters));
+    // Reset page to 1 when filters change
+    newParams.set("page", 1);
+    setSearchParams(newParams);
+    setCurrentPage(0);
   };
 
   return (
     <Container fluid className="py-4">
-      {/* Search Bar (full width) */}
+      {/* Search Bar */}
       <Row>
         <Col xs={12} className="mb-3">
-          <SearchBar search={search} setSearch={setSearch} handleSubmit={handleSubmit} />
+          <SearchBar
+            search={search}
+            setSearch={setSearch}
+            handleSubmit={handleSubmit}
+          />
         </Col>
       </Row>
 
-      {/* Heading (full width) */}
+      {/* Heading */}
       <Row>
         <Col xs={12}>
-          <h2 className="mb-4 text-center">Search Results for: {urlQuery}</h2>
+          <h2 className="mb-4 text-center">
+            Search Results for: {urlQuery}
+          </h2>
         </Col>
       </Row>
 
@@ -122,7 +135,11 @@ const SearchPage = () => {
       <Row>
         <Col md={3} className="mb-4">
           {filters.length > 0 && (
-            <FilterComponent filters={filters} onFilterChange={handleFilterChange} />
+            <FilterComponent
+              filters={filters}
+              selectedFilters={selectedFiltersFromUrl}
+              onFilterChange={handleFilterChange}
+            />
           )}
         </Col>
         <Col md={9}>

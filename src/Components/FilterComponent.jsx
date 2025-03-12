@@ -1,45 +1,37 @@
-import React, { useState } from "react";
+import React from "react";
 import { Card, Form } from "react-bootstrap";
 import ReactSlider from "react-slider";
 import "./FilterComponent.css";
 
-const FilterComponent = ({ filters, onFilterChange }) => {
-  
-  const [selectedFilters, setSelectedFilters] = useState({});
+const FilterComponent = ({ filters, selectedFilters, onFilterChange }) => {
+  // For checkbox filters, selectedFilters[filter.attribute] should be an array.
+  // For slider filters, selectedFilters[filter.attribute] should be an object {min, max}.
 
-  // Handle changes for checkbox filters.
   const handleCheckboxChange = (filterAttribute, optionName, checked) => {
-    setSelectedFilters((prev) => {
-      const current = prev[filterAttribute] || [];
-      const newSelection = checked
-        ? [...current, optionName]
-        : current.filter((name) => name !== optionName);
-      const updated = { ...prev, [filterAttribute]: newSelection };
-      if (onFilterChange) {
-        onFilterChange(updated);
-      }
-      return updated;
+    const currentSelection = selectedFilters[filterAttribute] || [];
+    let newSelection;
+    if (checked) {
+      newSelection = [...currentSelection, optionName];
+    } else {
+      newSelection = currentSelection.filter((name) => name !== optionName);
+    }
+    onFilterChange({
+      ...selectedFilters,
+      [filterAttribute]: newSelection,
     });
   };
 
-  // Handle changes for the slider (price range).
-  const handleSliderChange = (filterAttribute, [minValue, maxValue]) => {
-    setSelectedFilters((prev) => {
-      const updatedPriceRange = { min: minValue, max: maxValue };
-      const updated = { ...prev, [filterAttribute]: updatedPriceRange };
-      if (onFilterChange) {
-        onFilterChange(updated);
-      }
-      return updated;
+  const handleSliderChange = (filterAttribute, values) => {
+    onFilterChange({
+      ...selectedFilters,
+      [filterAttribute]: { min: values[0], max: values[1] },
     });
   };
 
-  // Helper to get the current selected min/max for a given filter,
-  // or default to the filter's min_price/max_price.
   const getSelectedRange = (filter) => {
-    const savedRange = selectedFilters[filter.attribute];
-    if (savedRange) {
-      return [Number(savedRange.min), Number(savedRange.max)];
+    if (selectedFilters && selectedFilters[filter.attribute]) {
+      const { min, max } = selectedFilters[filter.attribute];
+      return [Number(min), Number(max)];
     }
     return [filter.options.min_price, filter.options.max_price];
   };
@@ -51,16 +43,16 @@ const FilterComponent = ({ filters, onFilterChange }) => {
         if (filter.attribute === "type") return null;
 
         const isArrayOptions = Array.isArray(filter.options);
-        const [selectedMin, selectedMax] = !isArrayOptions
-          ? getSelectedRange(filter)
-          : [null, null];
-
+        let selectedMin = null, selectedMax = null;
+        if (!isArrayOptions) {
+          [selectedMin, selectedMax] = getSelectedRange(filter);
+        }
         return (
           <Card key={filter.attribute} className="mb-3">
             <Card.Header>{filter.label}</Card.Header>
             <Card.Body>
               {isArrayOptions ? (
-                // Render checkbox list for filters with array options.
+                // Render checkboxes for array-based filters
                 <Form>
                   {filter.options.map((option) => (
                     <Form.Check
@@ -75,11 +67,16 @@ const FilterComponent = ({ filters, onFilterChange }) => {
                           e.target.checked
                         )
                       }
+                      checked={
+                        selectedFilters[filter.attribute]
+                          ? selectedFilters[filter.attribute].includes(option.name)
+                          : false
+                      }
                     />
                   ))}
                 </Form>
               ) : (
-                // Render a range slider for filters with object options (e.g., Price).
+                // Render a range slider for object-based filters (e.g., Price)
                 <div>
                   <ReactSlider
                     className="horizontal-slider my-3"
