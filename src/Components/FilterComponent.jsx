@@ -73,8 +73,8 @@ const FilterComponent = ({ filters, selectedFilters, onFilterChange }) => {
             );
           }
           // Define threshold & collapsed count for "Show More/Less"
-          const threshold = 7;
-          const collapsedCount = 5;
+          const threshold = 5;
+          const collapsedCount = 3;
           const expanded = expandedFilters[filter.attribute] || false;
           // If no search term and there are too many options, show truncated list.
           const optionsToShow =

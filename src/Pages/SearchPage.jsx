@@ -8,8 +8,9 @@ import {
   Alert,
   Pagination,
   Form,
+  Button,
 } from "react-bootstrap";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import useSWRInfinite from "swr/infinite";
 import SearchBar from "../Components/SearchBar";
 import FilterComponent from "../Components/FilterComponent";
@@ -17,7 +18,6 @@ import useSearch from "../Hooks/useSearch";
 
 const PAGE_SIZE = 28;
 
-// Define client header mapping for each client type
 const CLIENT_HEADERS = {
   en: {
     "Client-id": "7645129791",
@@ -36,15 +36,14 @@ const fetcher = async ([url, query, filtersParam, sortBy, clientType, page, size
       ...CLIENT_HEADERS[clientType],
       "Content-Type": "application/json",
     };
-
     const response = await fetch(url, {
       method: "POST",
       headers,
       body: JSON.stringify({
         search: query,
         filter, // Pass the selected filters to the API
-        page: page,
-        size: size,
+        page,
+        size,
         sort_by: sortBy,
       }),
     });
@@ -83,13 +82,7 @@ const SearchPage = () => {
     ];
   };
 
-  const {
-    data,
-    error,
-    size: swrSize,
-    setSize,
-    isValidating,
-  } = useSWRInfinite(getKey, fetcher, {
+  const { data, error, size: swrSize, setSize, isValidating } = useSWRInfinite(getKey, fetcher, {
     initialSize: initialPage + 1,
     revalidateOnFocus: false,
   });
@@ -102,48 +95,50 @@ const SearchPage = () => {
   const filters = data && data[0] ? data[0].filter_list : [];
   const selectedFiltersFromUrl = filtersParam ? JSON.parse(filtersParam) : {};
 
-  const handlePageChange = (pageNumber) => {
-    if (pageNumber < 0 || pageNumber >= totalPages) return;
-    if (pageNumber >= swrSize) {
-      setSize(swrSize + 1);
-    }
-    setCurrentPage(pageNumber);
+  const updateUrlParams = (updates) => {
     const newParams = new URLSearchParams(searchParams);
-    newParams.set("page", pageNumber + 1);
+    Object.keys(updates).forEach((key) => newParams.set(key, updates[key]));
     setSearchParams(newParams);
   };
 
+  const handlePageChange = (pageNumber) => {
+    if (pageNumber < 0 || pageNumber >= totalPages) return;
+    if (pageNumber >= swrSize) setSize(swrSize + 1);
+    setCurrentPage(pageNumber);
+    updateUrlParams({ page: pageNumber + 1 });
+  };
+
   const handleFilterChange = (updatedFilters) => {
-    const newParams = new URLSearchParams(searchParams);
-    newParams.set("filters", JSON.stringify(updatedFilters));
-    newParams.set("page", 1);
-    setSearchParams(newParams);
+    updateUrlParams({ filters: JSON.stringify(updatedFilters), page: 1 });
     setCurrentPage(0);
   };
 
   const handleSortChange = (e) => {
     const newValue = e.target.value;
     setSortBy(newValue);
-    const newParams = new URLSearchParams(searchParams);
-    newParams.set("page", 1);
-    setSearchParams(newParams);
+    updateUrlParams({ page: 1 });
     setCurrentPage(0);
   };
 
   const handleClientChange = (e) => {
     const newValue = e.target.value;
     setClientType(newValue);
-    // Append the actual client id to the URL as "client"
     const clientId = CLIENT_HEADERS[newValue]["Client-id"];
-    const newParams = new URLSearchParams(searchParams);
-    newParams.set("client", clientId);
-    newParams.set("page", 1);
-    setSearchParams(newParams);
+    updateUrlParams({ client: clientId, page: 1 });
     setCurrentPage(0);
   };
 
   return (
     <Container fluid className="py-4">
+      {/* Back Button */}
+      <Row className="mb-3">
+        <Col>
+          <Button as={Link} to="/" variant="secondary">
+            Back to Home
+          </Button>
+        </Col>
+      </Row>
+
       {/* Search Bar */}
       <Row>
         <Col xs={12} className="mb-3">
@@ -213,17 +208,11 @@ const SearchPage = () => {
                   items.map((item) => {
                     const originalPrice = item.price && item.price.trim();
                     const salePrice = item.sale_price && item.sale_price.trim();
-                    const hasDiscount =
-                      originalPrice && salePrice && originalPrice !== salePrice;
+                    const hasDiscount = originalPrice && salePrice && originalPrice !== salePrice;
                     return (
                       <Col key={item.id}>
                         <Card className="h-100">
-                          <Card.Img
-                            variant="top"
-                            src={item.image_link}
-                            alt={item.title}
-                            className="img-fluid rounded"
-                          />
+                          <Card.Img variant="top" src={item.image_link} alt={item.title} className="img-fluid rounded" />
                           <Card.Body>
                             <Card.Title>{item.title}</Card.Title>
                             {hasDiscount ? (
@@ -251,23 +240,13 @@ const SearchPage = () => {
               </Row>
 
               <Pagination className="justify-content-center">
-                <Pagination.Prev
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 0}
-                />
+                <Pagination.Prev onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 0} />
                 {Array.from({ length: totalPages }).map((_, i) => (
-                  <Pagination.Item
-                    key={i + 1}
-                    active={i === currentPage}
-                    onClick={() => handlePageChange(i)}
-                  >
+                  <Pagination.Item key={i + 1} active={i === currentPage} onClick={() => handlePageChange(i)}>
                     {i + 1}
                   </Pagination.Item>
                 ))}
-                <Pagination.Next
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage + 1 >= totalPages}
-                />
+                <Pagination.Next onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage + 1 >= totalPages} />
               </Pagination>
             </>
           )}
