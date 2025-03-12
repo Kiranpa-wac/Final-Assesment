@@ -1,23 +1,25 @@
-import React from "react";
-import { Card, Form } from "react-bootstrap";
+import React, { useState } from "react";
+import { Card, Form, Button } from "react-bootstrap";
 import ReactSlider from "react-slider";
 import "./FilterComponent.css";
 
 const FilterComponent = ({ filters, selectedFilters, onFilterChange }) => {
-  // Handle checkbox filters.
+  // State to control which filter sections are expanded.
+  const [expandedFilters, setExpandedFilters] = useState({});
+  // State to store search term for each filter group.
+  const [filterSearchTerms, setFilterSearchTerms] = useState({});
+
   const handleCheckboxChange = (filterAttribute, optionName, checked) => {
     const currentSelection = selectedFilters[filterAttribute] || [];
     const newSelection = checked
       ? [...currentSelection, optionName]
       : currentSelection.filter((name) => name !== optionName);
-
     onFilterChange({
       ...selectedFilters,
       [filterAttribute]: newSelection,
     });
   };
 
-  // Handle slider changes (price range).
   const handleSliderChange = (filterAttribute, values) => {
     onFilterChange({
       ...selectedFilters,
@@ -25,27 +27,32 @@ const FilterComponent = ({ filters, selectedFilters, onFilterChange }) => {
     });
   };
 
-  // Safely derive [min, max] for the slider, falling back to default if needed.
   const getSelectedRange = (filter) => {
     const defaultMin = Number(filter.options.min_price) || 0;
     const defaultMax = Number(filter.options.max_price) || 999999;
-
     const stored = selectedFilters[filter.attribute];
     if (stored && typeof stored === "object") {
-      // Attempt to parse min & max from stored object
       const parsedMin = Number(stored.min);
       const parsedMax = Number(stored.max);
-
-      // Fallback if they're invalid or NaN
       const finalMin = Number.isFinite(parsedMin) ? parsedMin : defaultMin;
       const finalMax = Number.isFinite(parsedMax) ? parsedMax : defaultMax;
-
-      // Ensure min <= max for the slider
       return [Math.min(finalMin, finalMax), Math.max(finalMin, finalMax)];
     }
-
-    // If not present or invalid, return the default range
     return [defaultMin, defaultMax];
+  };
+
+  const toggleExpand = (filterAttribute) => {
+    setExpandedFilters((prev) => ({
+      ...prev,
+      [filterAttribute]: !prev[filterAttribute],
+    }));
+  };
+
+  const handleSearchTermChange = (filterAttribute, term) => {
+    setFilterSearchTerms({
+      ...filterSearchTerms,
+      [filterAttribute]: term,
+    });
   };
 
   return (
@@ -55,18 +62,44 @@ const FilterComponent = ({ filters, selectedFilters, onFilterChange }) => {
         if (filter.attribute === "type") return null;
 
         const isArrayOptions = Array.isArray(filter.options);
-
         if (isArrayOptions) {
-          // Render checkboxes for array-based filters
+          // For array-based filters, get the search term
+          const searchTerm = filterSearchTerms[filter.attribute] || "";
+          // Filter options based on search term if provided
+          let filteredOptions = filter.options;
+          if (searchTerm.trim() !== "") {
+            filteredOptions = filter.options.filter((option) =>
+              option.label.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+          }
+          // Define threshold & collapsed count for "Show More/Less"
+          const threshold = 7;
+          const collapsedCount = 5;
+          const expanded = expandedFilters[filter.attribute] || false;
+          // If no search term and there are too many options, show truncated list.
+          const optionsToShow =
+            searchTerm.trim() === "" && filteredOptions.length > threshold && !expanded
+              ? filteredOptions.slice(0, collapsedCount)
+              : filteredOptions;
+
           return (
             <Card key={filter.attribute} className="mb-3">
               <Card.Header>{filter.label}</Card.Header>
               <Card.Body>
+                {/* Search bar for this filter */}
+                <Form.Control
+                  type="text"
+                  placeholder={`Search ${filter.label}...`}
+                  value={searchTerm}
+                  onChange={(e) =>
+                    handleSearchTermChange(filter.attribute, e.target.value)
+                  }
+                  className="mb-2"
+                />
                 <Form>
-                  {filter.options.map((option) => {
+                  {optionsToShow.map((option) => {
                     const currentValues = selectedFilters[filter.attribute] || [];
                     const checked = currentValues.includes(option.name);
-
                     return (
                       <Form.Check
                         key={option.name}
@@ -84,6 +117,16 @@ const FilterComponent = ({ filters, selectedFilters, onFilterChange }) => {
                       />
                     );
                   })}
+                  {filteredOptions.length > threshold && searchTerm.trim() === "" && (
+                    <div className="mt-2">
+                      <Button
+                        variant="link"
+                        onClick={() => toggleExpand(filter.attribute)}
+                      >
+                        {expanded ? "Show Less" : "Show More"}
+                      </Button>
+                    </div>
+                  )}
                 </Form>
               </Card.Body>
             </Card>
@@ -102,7 +145,9 @@ const FilterComponent = ({ filters, selectedFilters, onFilterChange }) => {
                   min={Number(filter.options.min_price) || 0}
                   max={Number(filter.options.max_price) || 999999}
                   value={[selectedMin, selectedMax]}
-                  onChange={(values) => handleSliderChange(filter.attribute, values)}
+                  onChange={(values) =>
+                    handleSliderChange(filter.attribute, values)
+                  }
                   pearling
                   minDistance={1}
                 />

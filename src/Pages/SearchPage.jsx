@@ -66,14 +66,9 @@ const SearchPage = () => {
   const initialPage = parseInt(searchParams.get("page") || "1", 10) - 1;
 
   const { search, setSearch, handleSubmit } = useSearch();
-
-  // New state for client selection – default is "en" (Quater en)
   const [clientType, setClientType] = useState("en");
-
-  // Sort state – default value is "1" (Relevance)
   const [sortBy, setSortBy] = useState("1");
 
-  // SWRInfinite key includes query, filters, sort, and client type
   const getKey = (pageIndex, previousPageData) => {
     if (!urlQuery) return null;
     if (previousPageData && previousPageData.items.length === 0) return null;
@@ -88,11 +83,16 @@ const SearchPage = () => {
     ];
   };
 
-  const { data, error, size: swrSize, setSize, isValidating } = useSWRInfinite(
-    getKey,
-    fetcher,
-    { initialSize: initialPage + 1, revalidateOnFocus: false }
-  );
+  const {
+    data,
+    error,
+    size: swrSize,
+    setSize,
+    isValidating,
+  } = useSWRInfinite(getKey, fetcher, {
+    initialSize: initialPage + 1,
+    revalidateOnFocus: false,
+  });
 
   const [currentPage, setCurrentPage] = useState(initialPage);
   const totalItems = data && data[0] ? data[0].total : 0;
@@ -133,7 +133,6 @@ const SearchPage = () => {
   const handleClientChange = (e) => {
     const newValue = e.target.value;
     setClientType(newValue);
-    // Optionally update URL parameter "client" if you want persistence
     const newParams = new URLSearchParams(searchParams);
     newParams.set("client", newValue);
     newParams.set("page", 1);
@@ -161,7 +160,7 @@ const SearchPage = () => {
         </Col>
       </Row>
 
-      {/* Client Dropdown and Sort Dropdown */}
+      {/* Client & Sort Dropdowns */}
       <Row className="mb-3">
         <Col className="d-flex justify-content-end">
           <Form.Select
@@ -213,24 +212,40 @@ const SearchPage = () => {
             <>
               <Row xs={1} md={4} className="g-4 mb-4">
                 {items.length > 0 ? (
-                  items.map((item) => (
-                    <Col key={item.id}>
-                      <Card className="h-100">
-                        <Card.Img
-                          variant="top"
-                          src={item.image_link}
-                          alt={item.title}
-                          className="img-fluid rounded"
-                        />
-                        <Card.Body>
-                          <Card.Title>{item.title}</Card.Title>
-                          <Card.Text className="fw-bold">
-                            Price: {item.sale_price}
-                          </Card.Text>
-                        </Card.Body>
-                      </Card>
-                    </Col>
-                  ))
+                  items.map((item) => {
+                    // Determine if discount exists by comparing price and sale_price
+                    const originalPrice = item.price && item.price.trim();
+                    const salePrice = item.sale_price && item.sale_price.trim();
+                    const hasDiscount =
+                      originalPrice && salePrice && originalPrice !== salePrice;
+                    return (
+                      <Col key={item.id}>
+                        <Card className="h-100">
+                          <Card.Img
+                            variant="top"
+                            src={item.image_link}
+                            alt={item.title}
+                            className="img-fluid rounded"
+                          />
+                          <Card.Body>
+                            <Card.Title>{item.title}</Card.Title>
+                            {hasDiscount ? (
+                              <Card.Text>
+                                <span className="text-muted text-decoration-line-through me-2">
+                                  {originalPrice}
+                                </span>
+                                <span className="fw-bold">{salePrice}</span>
+                              </Card.Text>
+                            ) : (
+                              <Card.Text className="fw-bold">
+                                Price: {salePrice || originalPrice}
+                              </Card.Text>
+                            )}
+                          </Card.Body>
+                        </Card>
+                      </Col>
+                    );
+                  })
                 ) : (
                   <Col className="text-center">
                     <p className="lead">Results not found</p>
