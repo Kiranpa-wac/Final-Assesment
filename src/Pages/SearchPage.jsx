@@ -7,6 +7,7 @@ import {
   Card,
   Alert,
   Pagination,
+  Form,
 } from "react-bootstrap";
 import { useSearchParams } from "react-router-dom";
 import useSWRInfinite from "swr/infinite";
@@ -16,9 +17,8 @@ import useSearch from "../Hooks/useSearch";
 
 const PAGE_SIZE = 28;
 
-const fetcher = async ([url, query, filtersParam, page, size]) => {
+const fetcher = async ([url, query, filtersParam, sortBy, page, size]) => {
   try {
-    // Parse selected filters from the URL (if any)
     const filter = filtersParam ? JSON.parse(filtersParam) : {};
     const response = await fetch(url, {
       method: "POST",
@@ -29,10 +29,10 @@ const fetcher = async ([url, query, filtersParam, page, size]) => {
       },
       body: JSON.stringify({
         search: query,
-        filter, // Pass the selected filters to the API
+        filter,
         page: page,
         size: size,
-        sort_by: "1",
+        sort_by: sortBy,
       }),
     });
     if (!response.ok) {
@@ -49,14 +49,14 @@ const fetcher = async ([url, query, filtersParam, page, size]) => {
 const SearchPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlQuery = searchParams.get("query") || "";
-  // Get the filters from the URL as a JSON string (if any)
   const filtersParam = searchParams.get("filters") || "";
-  // Derive initial page from URL (convert to 0-indexed)
   const initialPage = parseInt(searchParams.get("page") || "1", 10) - 1;
 
   const { search, setSearch, handleSubmit } = useSearch();
 
-  // SWRInfinite key includes query and filters
+  // Sort state – default value is "1" (Relevance)
+  const [sortBy, setSortBy] = useState("1");
+
   const getKey = (pageIndex, previousPageData) => {
     if (!urlQuery) return null;
     if (previousPageData && previousPageData.items.length === 0) return null;
@@ -64,17 +64,22 @@ const SearchPage = () => {
       "https://uat.search-assist.webc.in/api/search",
       urlQuery,
       filtersParam,
+      sortBy,
       pageIndex + 1,
       PAGE_SIZE,
     ];
   };
 
-  // Use initialSize to load enough pages on refresh
-  const { data, error, size: swrSize, setSize, isValidating } = useSWRInfinite(
-    getKey,
-    fetcher,
-    { initialSize: initialPage + 1, revalidateOnFocus: false }
-  );
+  const {
+    data,
+    error,
+    size: swrSize,
+    setSize,
+    isValidating,
+  } = useSWRInfinite(getKey, fetcher, {
+    initialSize: initialPage + 1,
+    revalidateOnFocus: false,
+  });
 
   const [currentPage, setCurrentPage] = useState(initialPage);
   const totalItems = data && data[0] ? data[0].total : 0;
@@ -83,7 +88,6 @@ const SearchPage = () => {
   const items = currentData?.items || [];
   const filters = data && data[0] ? data[0].filter_list : [];
 
-  // Parse selected filters from URL or default to empty object.
   const selectedFiltersFromUrl = filtersParam ? JSON.parse(filtersParam) : {};
 
   const handlePageChange = (pageNumber) => {
@@ -92,18 +96,25 @@ const SearchPage = () => {
       setSize(swrSize + 1);
     }
     setCurrentPage(pageNumber);
-    // Update the URL's "page" parameter (1-indexed)
     const newParams = new URLSearchParams(searchParams);
     newParams.set("page", pageNumber + 1);
     setSearchParams(newParams);
   };
 
-  // When filters change, update the URL state immediately and reset the page to 1.
   const handleFilterChange = (updatedFilters) => {
-    console.log("Selected filters:", updatedFilters);
     const newParams = new URLSearchParams(searchParams);
     newParams.set("filters", JSON.stringify(updatedFilters));
-    // Reset page to 1 when filters change
+    newParams.set("page", 1);
+    setSearchParams(newParams);
+    setCurrentPage(0);
+  };
+
+  const handleSortChange = (e) => {
+    const newValue = e.target.value;
+    setSortBy(newValue);
+
+    // Reset page to 1 on sort change
+    const newParams = new URLSearchParams(searchParams);
     newParams.set("page", 1);
     setSearchParams(newParams);
     setCurrentPage(0);
@@ -131,7 +142,23 @@ const SearchPage = () => {
         </Col>
       </Row>
 
-      {/* Main content: Filters on left, results on right */}
+      {/* Sort Dropdown (small width, aligned right) */}
+      <Row className="mb-3">
+        <Col className="d-flex justify-content-end">
+          <Form.Select
+            value={sortBy}
+            onChange={handleSortChange}
+            style={{ width: "150px" }} // Adjust width as needed
+          >
+            <option value="1">Relevance</option>
+            <option value="2">Price high to low</option>
+            <option value="3">Price low to high</option>
+            <option value="4">Newest</option>
+
+          </Form.Select>
+        </Col>
+      </Row>
+
       <Row>
         <Col md={3} className="mb-4">
           {filters.length > 0 && (
