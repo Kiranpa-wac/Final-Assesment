@@ -24,8 +24,8 @@ const CLIENT_HEADERS = {
     "Secret-key": "Qfj1UUkFItWfVFwWpJ65g0VfhjdVGN",
   },
   ar: {
-    "Client-id": "5807942863", 
-    "Secret-key": "Llz5MR37gZ4gJULMwf762w1lQ13Iro", 
+    "Client-id": "5807942863",
+    "Secret-key": "Llz5MR37gZ4gJULMwf762w1lQ13Iro",
   },
 };
 
@@ -133,8 +133,10 @@ const SearchPage = () => {
   const handleClientChange = (e) => {
     const newValue = e.target.value;
     setClientType(newValue);
+    // Append the actual client id to the URL as "client"
+    const clientId = CLIENT_HEADERS[newValue]["Client-id"];
     const newParams = new URLSearchParams(searchParams);
-    newParams.set("client", newValue);
+    newParams.set("client", clientId);
     newParams.set("page", 1);
     setSearchParams(newParams);
     setCurrentPage(0);
@@ -145,11 +147,7 @@ const SearchPage = () => {
       {/* Search Bar */}
       <Row>
         <Col xs={12} className="mb-3">
-          <SearchBar
-            search={search}
-            setSearch={setSearch}
-            handleSubmit={handleSubmit}
-          />
+          <SearchBar search={search} setSearch={setSearch} handleSubmit={handleSubmit} />
         </Col>
       </Row>
 
@@ -213,7 +211,6 @@ const SearchPage = () => {
               <Row xs={1} md={4} className="g-4 mb-4">
                 {items.length > 0 ? (
                   items.map((item) => {
-                    // Determine if discount exists by comparing price and sale_price
                     const originalPrice = item.price && item.price.trim();
                     const salePrice = item.sale_price && item.sale_price.trim();
                     const hasDiscount =
