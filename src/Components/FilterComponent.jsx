@@ -55,8 +55,19 @@ const FilterComponent = ({ filters, selectedFilters, onFilterChange }) => {
     });
   };
 
+  const clearFilters = () => {
+    setFilterSearchTerms({});
+    setExpandedFilters({});
+    onFilterChange({});
+  };
+
   return (
     <div className="filter-component">
+      <div className="mb-3">
+        <Button variant="link" onClick={clearFilters}>
+          Clear Filters
+        </Button>
+      </div>
       {filters.map((filter) => {
         // Skip rendering if attribute is "type"
         if (filter.attribute === "type") return null;
@@ -119,10 +130,7 @@ const FilterComponent = ({ filters, selectedFilters, onFilterChange }) => {
                   })}
                   {filteredOptions.length > threshold && searchTerm.trim() === "" && (
                     <div className="mt-2">
-                      <Button
-                        variant="link"
-                        onClick={() => toggleExpand(filter.attribute)}
-                      >
+                      <Button variant="link" onClick={() => toggleExpand(filter.attribute)}>
                         {expanded ? "Show Less" : "Show More"}
                       </Button>
                     </div>
@@ -145,9 +153,7 @@ const FilterComponent = ({ filters, selectedFilters, onFilterChange }) => {
                   min={Number(filter.options.min_price) || 0}
                   max={Number(filter.options.max_price) || 999999}
                   value={[selectedMin, selectedMax]}
-                  onChange={(values) =>
-                    handleSliderChange(filter.attribute, values)
-                  }
+                  onChange={(values) => handleSliderChange(filter.attribute, values)}
                   pearling
                   minDistance={1}
                 />
