@@ -29,9 +29,18 @@ const CLIENT_HEADERS = {
   },
 };
 
-const fetcher = async ([url, query, filtersParam, sortBy, clientType, page, size]) => {
+const fetcher = async ([
+  url,
+  query,
+  filtersParam,
+  sortBy,
+  clientType,
+  page,
+  size,
+]) => {
   try {
     const filter = filtersParam ? JSON.parse(filtersParam) : {};
+    console.log(filter)
     const headers = {
       ...CLIENT_HEADERS[clientType],
       "Content-Type": "application/json",
@@ -47,6 +56,7 @@ const fetcher = async ([url, query, filtersParam, sortBy, clientType, page, size
         sort_by: sortBy,
       }),
     });
+
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.message || "Failed to fetch data");
@@ -68,6 +78,9 @@ const SearchPage = () => {
   const [clientType, setClientType] = useState("en");
   const [sortBy, setSortBy] = useState("1");
 
+  // Lift the expandedFilters state to persist across re-renders
+  const [expandedFilters, setExpandedFilters] = useState({});
+
   const getKey = (pageIndex, previousPageData) => {
     if (!urlQuery) return null;
     if (previousPageData && previousPageData.items.length === 0) return null;
@@ -82,7 +95,13 @@ const SearchPage = () => {
     ];
   };
 
-  const { data, error, size: swrSize, setSize, isValidating } = useSWRInfinite(getKey, fetcher, {
+  const {
+    data,
+    error,
+    size: swrSize,
+    setSize,
+    isValidating,
+  } = useSWRInfinite(getKey, fetcher, {
     initialSize: initialPage + 1,
     revalidateOnFocus: false,
   });
@@ -142,14 +161,20 @@ const SearchPage = () => {
       {/* Search Bar */}
       <Row>
         <Col xs={12} className="mb-3">
-          <SearchBar search={search} setSearch={setSearch} handleSubmit={handleSubmit} />
+          <SearchBar
+            search={search}
+            setSearch={setSearch}
+            handleSubmit={handleSubmit}
+          />
         </Col>
       </Row>
 
       {/* Heading */}
       <Row>
         <Col xs={12}>
-          <h2 className="mb-4 text-center">Search Results for: {urlQuery}</h2>
+          <h2 className="mb-4 text-center">
+            Search Results for: {urlQuery}
+          </h2>
         </Col>
       </Row>
 
@@ -184,6 +209,8 @@ const SearchPage = () => {
               filters={filters}
               selectedFilters={selectedFiltersFromUrl}
               onFilterChange={handleFilterChange}
+              expandedFilters={expandedFilters}         // Passing lifted state
+              setExpandedFilters={setExpandedFilters}     // Passing state updater
             />
           )}
         </Col>
@@ -206,13 +233,23 @@ const SearchPage = () => {
               <Row xs={1} md={4} className="g-4 mb-4">
                 {items.length > 0 ? (
                   items.map((item) => {
-                    const originalPrice = item.price && item.price.trim();
-                    const salePrice = item.sale_price && item.sale_price.trim();
-                    const hasDiscount = originalPrice && salePrice && originalPrice !== salePrice;
+                    const originalPrice =
+                      item.price && item.price.trim();
+                    const salePrice =
+                      item.sale_price && item.sale_price.trim();
+                    const hasDiscount =
+                      originalPrice &&
+                      salePrice &&
+                      originalPrice !== salePrice;
                     return (
                       <Col key={item.id}>
                         <Card className="h-100">
-                          <Card.Img variant="top" src={item.image_link} alt={item.title} className="img-fluid rounded" />
+                          <Card.Img
+                            variant="top"
+                            src={item.image_link}
+                            alt={item.title}
+                            className="img-fluid rounded"
+                          />
                           <Card.Body>
                             <Card.Title>{item.title}</Card.Title>
                             {hasDiscount ? (
@@ -220,7 +257,9 @@ const SearchPage = () => {
                                 <span className="text-muted text-decoration-line-through me-2">
                                   {originalPrice}
                                 </span>
-                                <span className="fw-bold">{salePrice}</span>
+                                <span className="fw-bold">
+                                  {salePrice}
+                                </span>
                               </Card.Text>
                             ) : (
                               <Card.Text className="fw-bold">
@@ -240,13 +279,27 @@ const SearchPage = () => {
               </Row>
 
               <Pagination className="justify-content-center">
-                <Pagination.Prev onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 0} />
+                <Pagination.Prev
+                  onClick={() =>
+                    handlePageChange(currentPage - 1)
+                  }
+                  disabled={currentPage === 0}
+                />
                 {Array.from({ length: totalPages }).map((_, i) => (
-                  <Pagination.Item key={i + 1} active={i === currentPage} onClick={() => handlePageChange(i)}>
+                  <Pagination.Item
+                    key={i + 1}
+                    active={i === currentPage}
+                    onClick={() => handlePageChange(i)}
+                  >
                     {i + 1}
                   </Pagination.Item>
                 ))}
-                <Pagination.Next onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage + 1 >= totalPages} />
+                <Pagination.Next
+                  onClick={() =>
+                    handlePageChange(currentPage + 1)
+                  }
+                  disabled={currentPage + 1 >= totalPages}
+                />
               </Pagination>
             </>
           )}

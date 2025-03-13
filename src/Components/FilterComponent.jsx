@@ -3,10 +3,14 @@ import { Card, Form, Button } from "react-bootstrap";
 import ReactSlider from "react-slider";
 import "./FilterComponent.css";
 
-const FilterComponent = ({ filters, selectedFilters, onFilterChange }) => {
-  // State to control which filter sections are expanded.
-  const [expandedFilters, setExpandedFilters] = useState({});
-  // State to store search term for each filter group.
+const FilterComponent = ({
+  filters,
+  selectedFilters,
+  onFilterChange,
+  expandedFilters,       // Lifted state from parent
+  setExpandedFilters,    // Function to update the lifted state
+}) => {
+  // Local state for search terms remains in this component.
   const [filterSearchTerms, setFilterSearchTerms] = useState({});
 
   const handleCheckboxChange = (filterAttribute, optionName, checked) => {
@@ -20,11 +24,19 @@ const FilterComponent = ({ filters, selectedFilters, onFilterChange }) => {
     });
   };
 
+  // Updated handleSliderChange: if the filter is "price", pass the value as an array.
   const handleSliderChange = (filterAttribute, values) => {
-    onFilterChange({
-      ...selectedFilters,
-      [filterAttribute]: { min: values[0], max: values[1] },
-    });
+    if (filterAttribute === "price") {
+      onFilterChange({
+        ...selectedFilters,
+        [filterAttribute]: values, // [min, max] array
+      });
+    } else {
+      onFilterChange({
+        ...selectedFilters,
+        [filterAttribute]: { min: values[0], max: values[1] },
+      });
+    }
   };
 
   const getSelectedRange = (filter) => {
@@ -32,8 +44,8 @@ const FilterComponent = ({ filters, selectedFilters, onFilterChange }) => {
     const defaultMax = Number(filter.options.max_price) || 999999;
     const stored = selectedFilters[filter.attribute];
     if (stored && typeof stored === "object") {
-      const parsedMin = Number(stored.min);
-      const parsedMax = Number(stored.max);
+      const parsedMin = Number(stored.min ?? stored[0]);
+      const parsedMax = Number(stored.max ?? stored[1]);
       const finalMin = Number.isFinite(parsedMin) ? parsedMin : defaultMin;
       const finalMax = Number.isFinite(parsedMax) ? parsedMax : defaultMax;
       return [Math.min(finalMin, finalMax), Math.max(finalMin, finalMax)];
@@ -57,7 +69,6 @@ const FilterComponent = ({ filters, selectedFilters, onFilterChange }) => {
 
   const clearFilters = () => {
     setFilterSearchTerms({});
-    setExpandedFilters({});
     onFilterChange({});
   };
 
@@ -74,22 +85,20 @@ const FilterComponent = ({ filters, selectedFilters, onFilterChange }) => {
 
         const isArrayOptions = Array.isArray(filter.options);
         if (isArrayOptions) {
-          // For array-based filters, get the search term
           const searchTerm = filterSearchTerms[filter.attribute] || "";
-          // Filter options based on search term if provided
           let filteredOptions = filter.options;
           if (searchTerm.trim() !== "") {
             filteredOptions = filter.options.filter((option) =>
               option.label.toLowerCase().includes(searchTerm.toLowerCase())
             );
           }
-          // Define threshold & collapsed count for "Show More/Less"
           const threshold = 5;
           const collapsedCount = 3;
           const expanded = expandedFilters[filter.attribute] || false;
-          // If no search term and there are too many options, show truncated list.
           const optionsToShow =
-            searchTerm.trim() === "" && filteredOptions.length > threshold && !expanded
+            searchTerm.trim() === "" &&
+            filteredOptions.length > threshold &&
+            !expanded
               ? filteredOptions.slice(0, collapsedCount)
               : filteredOptions;
 
@@ -97,7 +106,6 @@ const FilterComponent = ({ filters, selectedFilters, onFilterChange }) => {
             <Card key={filter.attribute} className="mb-3">
               <Card.Header>{filter.label}</Card.Header>
               <Card.Body>
-                {/* Search bar for this filter */}
                 <Form.Control
                   type="text"
                   placeholder={`Search ${filter.label}...`}
@@ -109,7 +117,8 @@ const FilterComponent = ({ filters, selectedFilters, onFilterChange }) => {
                 />
                 <Form>
                   {optionsToShow.map((option) => {
-                    const currentValues = selectedFilters[filter.attribute] || [];
+                    const currentValues =
+                      selectedFilters[filter.attribute] || [];
                     const checked = currentValues.includes(option.name);
                     return (
                       <Form.Check
@@ -128,13 +137,17 @@ const FilterComponent = ({ filters, selectedFilters, onFilterChange }) => {
                       />
                     );
                   })}
-                  {filteredOptions.length > threshold && searchTerm.trim() === "" && (
-                    <div className="mt-2">
-                      <Button variant="link" onClick={() => toggleExpand(filter.attribute)}>
-                        {expanded ? "Show Less" : "Show More"}
-                      </Button>
-                    </div>
-                  )}
+                  {filteredOptions.length > threshold &&
+                    searchTerm.trim() === "" && (
+                      <div className="mt-2">
+                        <Button
+                          variant="link"
+                          onClick={() => toggleExpand(filter.attribute)}
+                        >
+                          {expanded ? "Show Less" : "Show More"}
+                        </Button>
+                      </div>
+                    )}
                 </Form>
               </Card.Body>
             </Card>
@@ -153,7 +166,9 @@ const FilterComponent = ({ filters, selectedFilters, onFilterChange }) => {
                   min={Number(filter.options.min_price) || 0}
                   max={Number(filter.options.max_price) || 999999}
                   value={[selectedMin, selectedMax]}
-                  onChange={(values) => handleSliderChange(filter.attribute, values)}
+                  onChange={(values) =>
+                    handleSliderChange(filter.attribute, values)
+                  }
                   pearling
                   minDistance={1}
                 />
